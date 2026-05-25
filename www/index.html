@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>TetherDash</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #07090c;
+    color: #e8eef5;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body {
+    display: flex;
+    align-items: stretch;
+    padding: 18px;
+    gap: 18px;
+  }
+  .panel {
+    flex: 1;
+    background: linear-gradient(160deg, #11151c 0%, #0a0d12 100%);
+    border: 1px solid #1d242e;
+    border-radius: 22px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel-title {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: #6b7686;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .panel-sub {
+    font-size: 13px;
+    color: #8b95a5;
+    margin-bottom: 14px;
+  }
+
+  /* ===== LEFT: BATTERY (vertical) ===== */
+  .battery-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+  }
+  .vbattery {
+    height: min(72vh, 440px);
+    aspect-ratio: 0.42;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .vbattery-cap {
+    width: 38%;
+    height: 12px;
+    background: #2a3445;
+    border-radius: 4px 4px 0 0;
+  }
+  .vbattery-shell {
+    flex: 1;
+    width: 100%;
+    border: 3px solid #2a3445;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    background: #0a0d12;
+  }
+  .vbattery-fill {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 0%;
+    background: linear-gradient(180deg, #3adc91 0%, #2ab87a 100%);
+    transition: height 0.8s cubic-bezier(.2,.7,.2,1), background 0.5s;
+    box-shadow: 0 0 24px rgba(58, 220, 145, 0.5);
+  }
+  .vbattery-fill::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.4);
+  }
+  body.charging .vbattery-fill {
+    animation: chargePulse 1.8s ease-in-out infinite;
+  }
+  @keyframes chargePulse {
+    0%, 100% { box-shadow: 0 0 24px rgba(58, 220, 145, 0.5); }
+    50% { box-shadow: 0 0 36px rgba(255, 211, 77, 0.7); }
+  }
+  .battery-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .battery-pct {
+    font-size: clamp(56px, 13vh, 120px);
+    font-weight: 200;
+    letter-spacing: -0.04em;
+    font-feature-settings: "tnum";
+    line-height: 1;
+  }
+  .battery-pct span.unit {
+    font-size: 0.4em;
+    color: #8b95a5;
+    margin-left: 4px;
+  }
+  .battery-state {
+    font-size: 14px;
+    color: #8b95a5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bolt {
+    width: 16px; height: 16px;
+    display: none;
+    color: #ffd34d;
+    filter: drop-shadow(0 0 6px #ffd34d);
+  }
+  body.charging .bolt {
+    display: inline-block;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  body.charging .battery-state { color: #ffd34d; }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+
+  /* ===== RIGHT: TETHERING ===== */
+  .data-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+  }
+  .data-volume {
+    text-align: center;
+  }
+  .data-volume .num {
+    font-size: clamp(54px, 12vh, 110px);
+    font-weight: 200;
+    letter-spacing: -0.04em;
+    font-feature-settings: "tnum";
+    line-height: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #aab5c5 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .data-volume .unit {
+    font-size: 0.32em;
+    color: #8b95a5;
+    margin-left: 6px;
+    -webkit-text-fill-color: #8b95a5;
+  }
+  .data-volume .label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: #6b7686;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+  .stats-row {
+    display: flex;
+    gap: 12px;
+  }
+  .stat {
+    flex: 1;
+    background: #0c1117;
+    border: 1px solid #1a2230;
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat .v {
+    font-size: 22px;
+    font-weight: 300;
+    font-feature-settings: "tnum";
+    line-height: 1.1;
+  }
+  .stat .k {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: #6b7686;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .speed-down { color: #3adc91; }
+  .speed-up { color: #5aaaff; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 14px;
+  }
+  button {
+    flex: 1;
+    background: #1a2230;
+    color: #e8eef5;
+    border: 1px solid #2a3445;
+    border-radius: 12px;
+    padding: 11px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  button:active { background: #2a3445; }
+  button.primary {
+    background: linear-gradient(180deg, #3adc91 0%, #2ab87a 100%);
+    color: #0a1a12;
+    border-color: transparent;
+  }
+  button.primary:active { filter: brightness(0.92); }
+
+  .dev-hint {
+    position: fixed;
+    bottom: 4px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: #3a4453;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+  <!-- LEFT: BATTERY PANEL -->
+  <div class="panel">
+    <div class="panel-title">Battery</div>
+    <div class="battery-wrap">
+      <div class="vbattery">
+        <div class="vbattery-cap"></div>
+        <div class="vbattery-shell">
+          <div class="vbattery-fill" id="batFill"></div>
+        </div>
+      </div>
+      <div class="battery-meta">
+        <div class="battery-pct"><span id="batPct">--</span><span class="unit">%</span></div>
+        <div class="battery-state">
+          <svg class="bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+          <span id="batState">読み込み中</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: TETHERING PANEL -->
+  <div class="panel">
+    <div class="panel-title">Tethering</div>
+    <div class="panel-sub">概算 (セルラー全体)</div>
+
+    <div class="data-main">
+      <div class="data-volume">
+        <div class="num"><span id="dataVal">0.00</span><span class="unit" id="dataUnit">MB</span></div>
+        <div class="label" id="sessionLabel">SESSION  00:00:00</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat">
+          <div class="v speed-down">↓ <span id="speedDown">0.0</span> <span style="font-size:0.6em;color:#6b7686">MB/s</span></div>
+          <div class="k">Down</div>
+        </div>
+        <div class="stat">
+          <div class="v speed-up">↑ <span id="speedUp">0.0</span> <span style="font-size:0.6em;color:#6b7686">MB/s</span></div>
+          <div class="k">Up</div>
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="primary" id="btnStart">開始</button>
+      <button id="btnReset">リセット</button>
+    </div>
+  </div>
+
+  <div class="dev-hint">PROTOTYPE — MOCK DATA</div>
+
+<script>
+// ============================================================
+//  TetherDash
+//  - ネイティブ (Capacitor on iOS): 実APIを叩く
+//      Battery   → @capacitor/device の Device.getBatteryInfo()
+//      Bytes     → 自作プラグイン NetworkBytes.readCounters() ※Swift側で getifaddrs("pdp_ip0")
+//      画面常時ON → @capacitor-community/keep-awake
+//  - ブラウザ: モック(プロトタイプ動作確認用)
+// ============================================================
+
+const $ = (id) => document.getElementById(id);
+const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+document.querySelector('.dev-hint').textContent = isNative ? '' : 'PROTOTYPE — MOCK DATA';
+
+async function setupKeepAwake() {
+  if (!isNative) return;
+  try { await window.Capacitor.Plugins.KeepAwake.keepAwake(); } catch (e) { console.warn('KeepAwake unavailable', e); }
+}
+
+// ----- BATTERY -----
+let mockBat = 0.73;
+let mockCharging = false;
+async function readBattery() {
+  if (isNative && window.Capacitor.Plugins.Device) {
+    try {
+      const info = await window.Capacitor.Plugins.Device.getBatteryInfo();
+      return { level: info.batteryLevel ?? 0, charging: !!info.isCharging };
+    } catch (e) { /* fallthrough */ }
+  }
+  return { level: mockBat, charging: mockCharging };
+}
+function applyBatteryUI(level, charging) {
+  const pct = Math.round(level * 100);
+  $('batPct').textContent = pct;
+  $('batFill').style.height = (level * 100) + '%';
+  let color;
+  if (level > 0.5) color = 'linear-gradient(180deg, #3adc91 0%, #2ab87a 100%)';
+  else if (level > 0.2) color = 'linear-gradient(180deg, #ffd34d 0%, #e0a820 100%)';
+  else color = 'linear-gradient(180deg, #ff5566 0%, #c93142 100%)';
+  $('batFill').style.background = color;
+  document.body.classList.toggle('charging', charging);
+  $('batState').textContent = charging ? '充電中' : (pct < 20 ? '残量わずか' : '使用中');
+}
+
+// ----- TETHERING -----
+let session = {
+  active: false, startTs: 0, bytes: 0, dn: 0, up: 0,
+  baseRx: null, baseTx: null, lastRx: 0, lastTx: 0, lastTs: 0,
+};
+
+async function readBytesNative() {
+  if (!(isNative && window.Capacitor.Plugins.NetworkBytes)) return null;
+  try {
+    return await window.Capacitor.Plugins.NetworkBytes.readCounters(); // { rxBytes, txBytes }
+  } catch (e) { return null; }
+}
+
+async function tickBytes() {
+  const now = Date.now();
+  const r = await readBytesNative();
+  if (r) {
+    if (session.active) {
+      if (session.baseRx === null) {
+        session.baseRx = r.rxBytes; session.baseTx = r.txBytes;
+        session.lastRx = r.rxBytes; session.lastTx = r.txBytes; session.lastTs = now;
+      }
+      session.bytes = (r.rxBytes - session.baseRx) + (r.txBytes - session.baseTx);
+      const dt = (now - session.lastTs) / 1000;
+      if (dt > 0) {
+        session.dn = Math.max(0, r.rxBytes - session.lastRx) / 1_000_000 / dt;
+        session.up = Math.max(0, r.txBytes - session.lastTx) / 1_000_000 / dt;
+      }
+      session.lastRx = r.rxBytes; session.lastTx = r.txBytes; session.lastTs = now;
+    }
+  } else {
+    if (session.active) {
+      const inc = (300_000 + Math.random() * 2_200_000);
+      session.bytes += inc;
+      session.dn = inc * 0.85 / 1_000_000;
+      session.up = inc * 0.15 / 1_000_000;
+    }
+  }
+}
+
+function fmtBytes(b) {
+  if (b < 1_000_000) return { v: (b / 1000).toFixed(1), u: 'KB' };
+  if (b < 1_000_000_000) return { v: (b / 1_000_000).toFixed(2), u: 'MB' };
+  return { v: (b / 1_000_000_000).toFixed(2), u: 'GB' };
+}
+function fmtTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = String(Math.floor(s / 3600)).padStart(2, '0');
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const sec = String(s % 60).padStart(2, '0');
+  return `${h}:${m}:${sec}`;
+}
+function updateDataUI() {
+  const f = fmtBytes(session.bytes);
+  $('dataVal').textContent = f.v;
+  $('dataUnit').textContent = f.u;
+  const elapsed = session.active ? Date.now() - session.startTs : 0;
+  $('sessionLabel').textContent = `SESSION  ${fmtTime(elapsed)}`;
+  $('speedDown').textContent = session.dn.toFixed(2);
+  $('speedUp').textContent = session.up.toFixed(2);
+}
+
+$('btnStart').addEventListener('click', () => {
+  session.active = !session.active;
+  if (session.active) {
+    session.startTs = Date.now();
+    session.baseRx = null; session.baseTx = null;
+    session.bytes = 0; session.dn = 0; session.up = 0;
+    $('btnStart').textContent = '停止';
+    $('btnStart').classList.remove('primary');
+  } else {
+    $('btnStart').textContent = '開始';
+    $('btnStart').classList.add('primary');
+  }
+});
+$('btnReset').addEventListener('click', () => {
+  session = { active: false, startTs: 0, bytes: 0, dn: 0, up: 0,
+              baseRx: null, baseTx: null, lastRx: 0, lastTx: 0, lastTs: 0 };
+  $('btnStart').textContent = '開始';
+  $('btnStart').classList.add('primary');
+  updateDataUI();
+});
+
+// ----- Mock 揺らぎ (ブラウザ確認用) -----
+if (!isNative) {
+  setInterval(() => {
+    if (mockCharging) {
+      mockBat = Math.min(1, mockBat + 0.002);
+      if (mockBat >= 1) mockCharging = false;
+    } else {
+      mockBat = Math.max(0, mockBat - 0.0005);
+      if (mockBat < 0.15) mockCharging = true;
+    }
+  }, 800);
+}
+
+// ----- Main loop -----
+async function tick() {
+  const bat = await readBattery();
+  applyBatteryUI(bat.level, bat.charging);
+  await tickBytes();
+  updateDataUI();
+}
+async function boot() {
+  await setupKeepAwake();
+  await tick();
+  setInterval(tick, 500);
+}
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+*.log
+npm-debug.log*
+
+# iOS build artifacts (Codemagicが生成)
+ios/App/build/
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/DerivedData/
+ios/App/output/
+ios/App/App/public/
+
+# Codemagic
+.codemagic/

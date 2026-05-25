@@ -1,0 +1,14 @@
+{
+  "appId": "com.tom3281.tetherdash",
+  "appName": "TetherDash",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "scheme": "TetherDash"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}

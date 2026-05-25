@@ -1,0 +1,21 @@
+{
+  "name": "tetherdash",
+  "version": "1.0.0",
+  "description": "TetherDash — landscape battery + tethering data dashboard for iPhone hotspot use",
+  "private": true,
+  "scripts": {
+    "preview": "npx http-server www -p 5173 -o",
+    "cap:add:ios": "npx cap add ios",
+    "cap:sync": "npx cap sync"
+  },
+  "author": "tom3281",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/device": "^8.0.2",
+    "@capacitor/ios": "^8.3.4",
+    "tetherdash-network-bytes": "file:./plugins/network-bytes"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "tetherdash-network-bytes",
+  "version": "1.0.0",
+  "description": "TetherDash internal plugin — reads pdp_ip0 byte counters via getifaddrs",
+  "main": "index.js",
+  "private": true,
+  "files": [
+    "ios/Plugin/",
+    "TetherdashNetworkBytes.podspec",
+    "index.js"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.0"
+  }
+}
