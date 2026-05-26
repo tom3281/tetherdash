@@ -13,7 +13,6 @@ workflows:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         BUNDLE_ID: "com.tom3281.tetherdash"
-        APP_STORE_APP_ID: ""
       node: 22.20.0
       xcode: latest
       cocoapods: default
