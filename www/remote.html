@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TetherDash Remote</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #07090c;
+    color: #e8eef5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Yu Gothic UI", sans-serif;
+    min-height: 100vh;
+  }
+  body {
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 800px) {
+    body { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: linear-gradient(160deg, #11151c 0%, #0a0d12 100%);
+    border: 1px solid #1d242e;
+    border-radius: 18px;
+    padding: 24px;
+    min-height: 260px;
+  }
+  .panel-title {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: #6b7686;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .battery-row {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .vbattery {
+    width: 60px;
+    height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .vbattery-cap {
+    width: 36%;
+    height: 8px;
+    background: #2a3445;
+    border-radius: 3px 3px 0 0;
+  }
+  .vbattery-shell {
+    flex: 1;
+    width: 100%;
+    border: 2px solid #2a3445;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    background: #0a0d12;
+  }
+  .vbattery-fill {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 0%;
+    background: linear-gradient(180deg, #3adc91 0%, #2ab87a 100%);
+    transition: height 0.6s ease;
+  }
+  .battery-num {
+    font-size: 64px;
+    font-weight: 200;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-feature-settings: "tnum";
+  }
+  .battery-num .unit { font-size: 0.4em; color: #8b95a5; margin-left: 4px; }
+  .battery-state { font-size: 13px; color: #8b95a5; margin-top: 6px; }
+  .battery-state.charging { color: #ffd34d; }
+  .chart-wrap {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #1a2230;
+  }
+  .chart-label {
+    font-size: 10px; letter-spacing: 0.15em; color: #6b7686;
+    text-transform: uppercase; display: flex; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .bat-chart { width: 100%; height: 70px; display: block; }
+  .bat-chart .grid { stroke: #1a2230; stroke-width: 1; stroke-dasharray: 2 4; }
+
+  .data-num {
+    font-size: 72px;
+    font-weight: 200;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-feature-settings: "tnum";
+    text-align: center;
+    margin-top: 12px;
+  }
+  .data-num .unit { font-size: 0.3em; color: #8b95a5; margin-left: 6px; }
+  .session-label {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: #6b7686;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+  .stats-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .stat {
+    flex: 1;
+    background: #0c1117;
+    border: 1px solid #1a2230;
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat .v { font-size: 22px; font-weight: 300; font-feature-settings: "tnum"; }
+  .stat .k { font-size: 10px; letter-spacing: 0.15em; color: #6b7686; text-transform: uppercase; margin-top: 4px; }
+  .speed-down { color: #3adc91; }
+  .speed-up { color: #5aaaff; }
+
+  .footer {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 10px;
+    color: #3a4453;
+    letter-spacing: 0.1em;
+    margin-top: 8px;
+  }
+  .footer .live { color: #3adc91; }
+  .footer .stale { color: #ff5566; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <div class="panel-title">Battery</div>
+    <div class="battery-row">
+      <div class="vbattery">
+        <div class="vbattery-cap"></div>
+        <div class="vbattery-shell">
+          <div class="vbattery-fill" id="batFill"></div>
+        </div>
+      </div>
+      <div>
+        <div class="battery-num"><span id="batPct">--</span><span class="unit">%</span></div>
+        <div class="battery-state" id="batState">読み込み中</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-label">
+        <span>過去12時間</span>
+        <span id="chartRange">--</span>
+      </div>
+      <svg class="bat-chart" id="batChart" viewBox="0 0 400 70" preserveAspectRatio="none">
+        <line class="grid" x1="0" y1="14" x2="400" y2="14"/>
+        <line class="grid" x1="0" y1="35" x2="400" y2="35"/>
+        <line class="grid" x1="0" y1="56" x2="400" y2="56"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Tethering <span style="font-size:12px;color:#8b95a5;letter-spacing:normal;text-transform:none;margin-left:8px">概算 (セルラー全体)</span></div>
+    <div class="data-num"><span id="dataVal">0.00</span><span class="unit" id="dataUnit">MB</span></div>
+    <div class="session-label" id="sessionLabel">SESSION  --:--:--</div>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="v speed-down">↓ <span id="speedDown">0.0</span> <span style="font-size:0.6em;color:#6b7686">MB/s</span></div>
+        <div class="k">Down (1分平均)</div>
+      </div>
+      <div class="stat">
+        <div class="v speed-up">↑ <span id="speedUp">0.0</span> <span style="font-size:0.6em;color:#6b7686">MB/s</span></div>
+        <div class="k">Up (1分平均)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span id="liveStatus" class="live">● LIVE</span>
+    <span style="margin-left:16px">最終更新 <span id="lastUpdate">--</span></span>
+  </div>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const $ = (id) => document.getElementById(id);
+const BAT_WINDOW_MS = 12 * 60 * 60 * 1000;
+
+function fmtBytes(b) {
+  if (!b || b < 1_000_000) return { v: ((b||0) / 1000).toFixed(1), u: 'KB' };
+  if (b < 1_000_000_000) return { v: (b / 1_000_000).toFixed(2), u: 'MB' };
+  return { v: (b / 1_000_000_000).toFixed(2), u: 'GB' };
+}
+function fmtTime(ms) {
+  const s = Math.floor((ms||0) / 1000);
+  const h = String(Math.floor(s / 3600)).padStart(2, '0');
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const sec = String(s % 60).padStart(2, '0');
+  return `${h}:${m}:${sec}`;
+}
+function fmtHM(ts) {
+  const d = new Date(ts);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function segColor(s) {
+  if (s.charging) return '#ffd34d';
+  if (s.level < 0.2) return '#ff5566';
+  return '#3adc91';
+}
+
+function drawBatteryChart(history) {
+  const svg = $('batChart');
+  Array.from(svg.querySelectorAll('line:not(.grid), circle')).forEach(n => svg.removeChild(n));
+  const W = 400, H = 70;
+  const now = Date.now();
+  const xStart = now - BAT_WINDOW_MS;
+  if (!history || history.length === 0) {
+    $('chartRange').textContent = '記録なし';
+    return;
+  }
+  const first = history[0];
+  const ageMin = Math.round((now - first.ts) / 60000);
+  $('chartRange').textContent = ageMin < 60 ? `直近 ${ageMin}分` : `${fmtHM(first.ts)} - 現在`;
+  if (history.length < 2) return;
+  for (let i = 1; i < history.length; i++) {
+    const a = history[i - 1], b = history[i];
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', (((a.ts - xStart) / BAT_WINDOW_MS) * W).toFixed(1));
+    line.setAttribute('y1', (H - a.level * H).toFixed(1));
+    line.setAttribute('x2', (((b.ts - xStart) / BAT_WINDOW_MS) * W).toFixed(1));
+    line.setAttribute('y2', (H - b.level * H).toFixed(1));
+    line.setAttribute('stroke', segColor(b));
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(line);
+  }
+  const last = history[history.length - 1];
+  const dot = document.createElementNS(SVG_NS, 'circle');
+  dot.setAttribute('cx', (((last.ts - xStart) / BAT_WINDOW_MS) * W).toFixed(1));
+  dot.setAttribute('cy', (H - last.level * H).toFixed(1));
+  dot.setAttribute('r', '3');
+  dot.setAttribute('fill', segColor(last));
+  svg.appendChild(dot);
+}
+
+let lastFetchTs = 0;
+async function poll() {
+  try {
+    const r = await fetch('/state.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const s = await r.json();
+    lastFetchTs = Date.now();
+
+    const level = s.batteryLevel ?? 0;
+    const charging = !!s.charging;
+    const pct = Math.round(level * 100);
+    $('batPct').textContent = pct;
+    $('batFill').style.height = (level * 100) + '%';
+    let g;
+    if (level > 0.5) g = 'linear-gradient(180deg,#3adc91 0%,#2ab87a 100%)';
+    else if (level > 0.2) g = 'linear-gradient(180deg,#ffd34d 0%,#e0a820 100%)';
+    else g = 'linear-gradient(180deg,#ff5566 0%,#c93142 100%)';
+    $('batFill').style.background = g;
+    $('batState').textContent = charging ? '充電中' : (pct < 20 ? '残量わずか' : '使用中');
+    $('batState').classList.toggle('charging', charging);
+
+    const f = fmtBytes(s.bytes || 0);
+    $('dataVal').textContent = f.v;
+    $('dataUnit').textContent = f.u;
+    $('sessionLabel').textContent = `SESSION  ${fmtTime(s.sessionElapsedMs || 0)}`;
+    $('speedDown').textContent = (s.dn || 0).toFixed(2);
+    $('speedUp').textContent = (s.up || 0).toFixed(2);
+
+    drawBatteryChart(s.batteryHistory || []);
+
+    $('liveStatus').textContent = '● LIVE';
+    $('liveStatus').className = 'live';
+    $('lastUpdate').textContent = new Date(lastFetchTs).toLocaleTimeString('ja-JP');
+  } catch (e) {
+    $('liveStatus').textContent = '● 切断';
+    $('liveStatus').className = 'stale';
+  }
+}
+setInterval(poll, 1000);
+poll();
+</script>
+</body>
+</html>

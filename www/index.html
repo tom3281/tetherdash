@@ -267,6 +267,29 @@
     color: #3a4453;
     letter-spacing: 0.1em;
   }
+  .remote-info {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #5aaaff;
+    text-align: center;
+    font-feature-settings: "tnum";
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+  }
+  .remote-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #3adc91;
+    box-shadow: 0 0 6px #3adc91;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  button#btnRemote.active {
+    background: linear-gradient(180deg, #5aaaff 0%, #3a8adf 100%);
+    color: #0a1226;
+    border-color: transparent;
+  }
 </style>
 </head>
 <body>
@@ -325,6 +348,11 @@
     <div class="controls">
       <button class="primary" id="btnStart">開始</button>
       <button id="btnReset">リセット</button>
+      <button id="btnRemote">リモート</button>
+    </div>
+    <div class="remote-info" id="remoteInfo" style="display:none">
+      <span class="remote-dot"></span>
+      <span id="remoteUrl">--</span>
     </div>
   </div>
 
@@ -583,17 +611,69 @@ if (!isNative) {
   }, 800);
 }
 
+// ----- Local HTTP server (remote view from Windows etc.) -----
+let serverRunning = false;
+let lastStateLevel = 0, lastStateCharging = false;
+
+function localServerAvailable() {
+  return isNative && window.Capacitor.Plugins.LocalServer;
+}
+$('btnRemote').style.display = localServerAvailable() ? '' : 'none';
+
+async function toggleRemote() {
+  if (!localServerAvailable()) return;
+  const Plugin = window.Capacitor.Plugins.LocalServer;
+  if (serverRunning) {
+    try { await Plugin.stop(); } catch (e) {}
+    serverRunning = false;
+    $('btnRemote').classList.remove('active');
+    $('remoteInfo').style.display = 'none';
+  } else {
+    try {
+      const res = await Plugin.start({ port: 8080 });
+      serverRunning = !!res.running;
+      if (serverRunning) {
+        $('btnRemote').classList.add('active');
+        $('remoteInfo').style.display = '';
+        $('remoteUrl').textContent = res.preferredUrl || `http://[?]:${res.port}/`;
+      }
+    } catch (e) { console.warn('LocalServer.start failed', e); }
+  }
+}
+$('btnRemote').addEventListener('click', toggleRemote);
+
+async function pushStateToServer(level, charging) {
+  if (!serverRunning || !localServerAvailable()) return;
+  try {
+    await window.Capacitor.Plugins.LocalServer.updateState({
+      state: {
+        batteryLevel: level,
+        charging: charging,
+        bytes: session.bytes,
+        dn: session.dn,
+        up: session.up,
+        sessionActive: session.active,
+        sessionElapsedMs: session.active ? Date.now() - session.startTs : 0,
+        batteryHistory: batteryHistory.slice(-720), // 安全のため上限720点
+        ts: Date.now()
+      }
+    });
+  } catch (e) { /* ignore */ }
+}
+
 // ----- Main loop -----
 async function tick() {
   const bat = await readBattery();
   applyBatteryUI(bat.level, bat.charging);
   recordBatterySample(bat.level, bat.charging);
+  lastStateLevel = bat.level; lastStateCharging = bat.charging;
   await tickBytes();
   updateDataUI();
+  pushStateToServer(bat.level, bat.charging);
 }
 async function boot() {
   await setupKeepAwake();
-  drawBatteryChart(); // 既存履歴をすぐ描画
+  drawBatteryChart();
   await tick();
   setInterval(tick, 500);
 }
