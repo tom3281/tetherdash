@@ -5,6 +5,11 @@ import Darwin
 @objc(NetworkBytesPlugin)
 public class NetworkBytesPlugin: CAPPlugin {
 
+    // Darwin module 経由でSwiftからは見えない C マクロを明示定義
+    // (net/route.h) RTM_IFINFO2 = 0x12, NET_RT_IFLIST2 = 6
+    private static let RTM_IFINFO2_VAL: Int32 = 0x12
+    private static let NET_RT_IFLIST2_VAL: Int32 = 6
+
     // セルラー(pdp_ip0)の受信/送信バイト数を 64bit で返す。
     // getifaddrs() の if_data は 32bit (4GB ロールオーバー) なので、
     // sysctl(NET_RT_IFLIST2) + if_msghdr2.ifm_data (if_data64) を使う。
@@ -18,7 +23,7 @@ public class NetworkBytesPlugin: CAPPlugin {
     }
 
     private static func readInterfaceBytes(name targetName: String) -> (rx: UInt64, tx: UInt64, found: Bool) {
-        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0]
+        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2_VAL, 0]
         var len: size_t = 0
 
         guard sysctl(&mib, UInt32(mib.count), nil, &len, nil, 0) == 0, len > 0 else {
@@ -43,7 +48,7 @@ public class NetworkBytesPlugin: CAPPlugin {
             let msgLen = Int(ifm.ifm_msglen)
             guard msgLen > 0 else { break }
 
-            if Int32(ifm.ifm_type) == RTM_IFINFO2 {
+            if Int32(ifm.ifm_type) == RTM_IFINFO2_VAL {
                 let ifm2 = ifmRaw.assumingMemoryBound(to: if_msghdr2.self).pointee
                 let sdlRaw = ifmRaw.advanced(by: MemoryLayout<if_msghdr2>.size)
                 let sdl = sdlRaw.assumingMemoryBound(to: sockaddr_dl.self).pointee
