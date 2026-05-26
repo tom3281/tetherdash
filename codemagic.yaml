@@ -25,7 +25,7 @@ workflows:
           npx cap add ios --packagemanager CocoaPods
           npx cap sync ios
           test -f ios/App/Podfile && echo "OK Podfile exists" || (echo "ERROR Podfile MISSING" && exit 1)
-      - name: Configure Info.plist (横向き固定)
+      - name: Configure Info.plist (横向き固定 + iPadマルチタスキング無効)
         script: |
           PLIST="ios/App/App/Info.plist"
           /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$PLIST" 2>/dev/null || true
@@ -36,6 +36,8 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationLandscapeLeft" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationLandscapeRight" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :UIRequiresFullScreen" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool true" "$PLIST"
       - name: Install CocoaPods
         script: |
           cd ios/App && pod install
