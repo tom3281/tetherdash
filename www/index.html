@@ -56,11 +56,39 @@
     gap: 32px;
   }
   .vbattery {
-    height: min(72vh, 440px);
+    height: 100%;
+    max-height: min(72vh, 440px);
     aspect-ratio: 0.42;
     display: flex;
     flex-direction: column;
     align-items: center;
+  }
+
+  /* ===== Battery history chart ===== */
+  .battery-chart-wrap {
+    flex: 0 0 auto;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px solid #1a2230;
+  }
+  .chart-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: #6b7686;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .battery-chart {
+    width: 100%;
+    height: 70px;
+    display: block;
+  }
+  .battery-chart .grid {
+    stroke: #1a2230;
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
   }
   .vbattery-cap {
     width: 38%;
@@ -260,6 +288,17 @@
         </div>
       </div>
     </div>
+    <div class="battery-chart-wrap">
+      <div class="chart-label">
+        <span>過去12時間</span>
+        <span id="chartRange">--</span>
+      </div>
+      <svg class="battery-chart" id="batChart" viewBox="0 0 400 70" preserveAspectRatio="none">
+        <line class="grid" x1="0" y1="14" x2="400" y2="14"/>
+        <line class="grid" x1="0" y1="35" x2="400" y2="35"/>
+        <line class="grid" x1="0" y1="56" x2="400" y2="56"/>
+      </svg>
+    </div>
   </div>
 
   <!-- RIGHT: TETHERING PANEL -->
@@ -334,6 +373,89 @@ function applyBatteryUI(level, charging) {
   $('batFill').style.background = color;
   document.body.classList.toggle('charging', charging);
   $('batState').textContent = charging ? '充電中' : (pct < 20 ? '残量わずか' : '使用中');
+}
+
+// ----- BATTERY HISTORY (12h chart) -----
+const BAT_HIST_KEY = 'tetherdash_battery_history';
+const BAT_WINDOW_MS = 12 * 60 * 60 * 1000;       // 12h
+const BAT_SAMPLE_INTERVAL_MS = 60_000;            // 1min
+const SVG_NS = 'http://www.w3.org/2000/svg';
+let batteryHistory = (function () {
+  try {
+    const a = JSON.parse(localStorage.getItem(BAT_HIST_KEY) || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+})();
+let lastBatSample = 0;
+
+function saveBatteryHistory() {
+  try { localStorage.setItem(BAT_HIST_KEY, JSON.stringify(batteryHistory)); } catch (e) {}
+}
+function recordBatterySample(level, charging) {
+  const now = Date.now();
+  if (now - lastBatSample < BAT_SAMPLE_INTERVAL_MS) return;
+  lastBatSample = now;
+  batteryHistory.push({ ts: now, level, charging });
+  const cutoff = now - BAT_WINDOW_MS;
+  batteryHistory = batteryHistory.filter(s => s.ts >= cutoff);
+  saveBatteryHistory();
+  drawBatteryChart();
+}
+function fmtHM(ts) {
+  const d = new Date(ts);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function segColor(s) {
+  if (s.charging) return '#ffd34d';
+  if (s.level < 0.2) return '#ff5566';
+  return '#3adc91';
+}
+function drawBatteryChart() {
+  const svg = $('batChart');
+  if (!svg) return;
+  // Remove non-grid elements
+  Array.from(svg.querySelectorAll('line:not(.grid), polyline, circle')).forEach(n => svg.removeChild(n));
+  const W = 400, H = 70;
+  const now = Date.now();
+  const xStart = now - BAT_WINDOW_MS;
+  const span = BAT_WINDOW_MS;
+  // Range label
+  if (batteryHistory.length > 0) {
+    const first = batteryHistory[0];
+    const ageMin = Math.round((now - first.ts) / 60000);
+    if (ageMin < 60) $('chartRange').textContent = `直近 ${ageMin}分`;
+    else $('chartRange').textContent = `${fmtHM(first.ts)} - 現在`;
+  } else {
+    $('chartRange').textContent = '記録なし';
+  }
+  if (batteryHistory.length < 2) return;
+  for (let i = 1; i < batteryHistory.length; i++) {
+    const a = batteryHistory[i - 1];
+    const b = batteryHistory[i];
+    const x1 = ((a.ts - xStart) / span) * W;
+    const y1 = H - (a.level * H);
+    const x2 = ((b.ts - xStart) / span) * W;
+    const y2 = H - (b.level * H);
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', x1.toFixed(1));
+    line.setAttribute('y1', y1.toFixed(1));
+    line.setAttribute('x2', x2.toFixed(1));
+    line.setAttribute('y2', y2.toFixed(1));
+    line.setAttribute('stroke', segColor(b));
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(line);
+  }
+  // Current point marker
+  const last = batteryHistory[batteryHistory.length - 1];
+  const cx = ((last.ts - xStart) / span) * W;
+  const cy = H - (last.level * H);
+  const dot = document.createElementNS(SVG_NS, 'circle');
+  dot.setAttribute('cx', cx.toFixed(1));
+  dot.setAttribute('cy', cy.toFixed(1));
+  dot.setAttribute('r', '3');
+  dot.setAttribute('fill', segColor(last));
+  svg.appendChild(dot);
 }
 
 // ----- TETHERING -----
@@ -446,11 +568,13 @@ if (!isNative) {
 async function tick() {
   const bat = await readBattery();
   applyBatteryUI(bat.level, bat.charging);
+  recordBatterySample(bat.level, bat.charging);
   await tickBytes();
   updateDataUI();
 }
 async function boot() {
   await setupKeepAwake();
+  drawBatteryChart(); // 既存履歴をすぐ描画
   await tick();
   setInterval(tick, 500);
 }
