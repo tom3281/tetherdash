@@ -459,12 +459,17 @@ function drawBatteryChart() {
 }
 
 // ----- TETHERING -----
+// pdp_ip0 のバイトカウンタは32bit上限 / 通信再接続でリセットされるため、
+// 「前回値→今回値の差分」を累積する方式にして、減少を検知したらその時点での
+// 値そのものを差分として加算する(=リセット後の再カウントを正しく拾う)。
 let session = {
-  active: false, startTs: 0, bytes: 0, dn: 0, up: 0,
-  baseRx: null, baseTx: null,
+  active: false, startTs: 0,
+  bytes: 0, bytesRx: 0, bytesTx: 0,
+  dn: 0, up: 0,
 };
+let lastRaw = { rx: null, tx: null };
 const SPEED_WINDOW_MS = 60_000;
-let speedHistory = [];
+let speedHistory = []; // [{ts, rxCum, txCum}, ...]
 
 async function readBytesNative() {
   if (!(isNative && window.Capacitor.Plugins.NetworkBytes)) return null;
@@ -478,23 +483,33 @@ async function tickBytes() {
   const r = await readBytesNative();
   if (r) {
     if (session.active) {
-      if (session.baseRx === null) {
-        session.baseRx = r.rxBytes; session.baseTx = r.txBytes;
-        speedHistory = [];
-      }
-      session.bytes = (r.rxBytes - session.baseRx) + (r.txBytes - session.baseTx);
-      speedHistory.push({ ts: now, rx: r.rxBytes, tx: r.txBytes });
-      const cutoff = now - SPEED_WINDOW_MS;
-      while (speedHistory.length > 2 && speedHistory[0].ts < cutoff) speedHistory.shift();
-      if (speedHistory.length >= 2) {
-        const oldest = speedHistory[0];
-        const dt = (now - oldest.ts) / 1000;
-        if (dt > 0) {
-          session.dn = Math.max(0, r.rxBytes - oldest.rx) / 1_000_000 / dt;
-          session.up = Math.max(0, r.txBytes - oldest.tx) / 1_000_000 / dt;
+      if (lastRaw.rx === null) {
+        lastRaw.rx = r.rxBytes; lastRaw.tx = r.txBytes;
+        speedHistory = [{ ts: now, rxCum: session.bytesRx, txCum: session.bytesTx }];
+      } else {
+        let dRx = r.rxBytes - lastRaw.rx;
+        let dTx = r.txBytes - lastRaw.tx;
+        if (dRx < 0) dRx = Math.max(0, r.rxBytes); // カウンタリセット検知
+        if (dTx < 0) dTx = Math.max(0, r.txBytes);
+        session.bytesRx += dRx;
+        session.bytesTx += dTx;
+        lastRaw.rx = r.rxBytes; lastRaw.tx = r.txBytes;
+
+        speedHistory.push({ ts: now, rxCum: session.bytesRx, txCum: session.bytesTx });
+        const cutoff = now - SPEED_WINDOW_MS;
+        while (speedHistory.length > 2 && speedHistory[0].ts < cutoff) speedHistory.shift();
+        if (speedHistory.length >= 2) {
+          const oldest = speedHistory[0];
+          const dt = (now - oldest.ts) / 1000;
+          if (dt > 0) {
+            session.dn = (session.bytesRx - oldest.rxCum) / 1_000_000 / dt;
+            session.up = (session.bytesTx - oldest.txCum) / 1_000_000 / dt;
+          }
         }
       }
+      session.bytes = session.bytesRx + session.bytesTx;
     } else {
+      lastRaw.rx = null; lastRaw.tx = null;
       speedHistory = [];
     }
   } else {
@@ -533,8 +548,10 @@ $('btnStart').addEventListener('click', () => {
   session.active = !session.active;
   if (session.active) {
     session.startTs = Date.now();
-    session.baseRx = null; session.baseTx = null;
-    session.bytes = 0; session.dn = 0; session.up = 0;
+    session.bytes = 0; session.bytesRx = 0; session.bytesTx = 0;
+    session.dn = 0; session.up = 0;
+    lastRaw.rx = null; lastRaw.tx = null;
+    speedHistory = [];
     $('btnStart').textContent = '停止';
     $('btnStart').classList.remove('primary');
   } else {
@@ -543,8 +560,10 @@ $('btnStart').addEventListener('click', () => {
   }
 });
 $('btnReset').addEventListener('click', () => {
-  session = { active: false, startTs: 0, bytes: 0, dn: 0, up: 0,
-              baseRx: null, baseTx: null };
+  session = { active: false, startTs: 0,
+              bytes: 0, bytesRx: 0, bytesTx: 0,
+              dn: 0, up: 0 };
+  lastRaw.rx = null; lastRaw.tx = null;
   speedHistory = [];
   $('btnStart').textContent = '開始';
   $('btnStart').classList.add('primary');
