@@ -19,8 +19,15 @@ workflows:
           npm ci
       - name: Generate iOS platform
         script: |
-          npx cap add ios || echo "iOS platform already exists"
+          set -e
+          npx cap add ios
+          echo "=== After cap add ios ==="
+          ls -la ios/ || true
+          ls -la ios/App/ || true
           npx cap sync ios
+          echo "=== After cap sync ==="
+          ls -la ios/App/
+          test -f ios/App/Podfile && echo "OK Podfile exists" || (echo "ERROR Podfile MISSING" && exit 1)
       - name: Configure Info.plist (横向き固定)
         script: |
           PLIST="ios/App/App/Info.plist"
