@@ -6,52 +6,70 @@
 <title>TetherDash Remote</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
+  html, body { height: 100%; }
+  body {
     background: #07090c;
     color: #e8eef5;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Yu Gothic UI", sans-serif;
-    min-height: 100vh;
-  }
-  body {
     padding: 14px;
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr auto;
     gap: 14px;
-    max-width: 1100px;
-    margin: 0 auto;
-    align-items: start;
+    overflow: hidden;
   }
   @media (max-width: 800px) {
-    body { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
+    body {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1fr auto;
+      padding: 10px;
+      gap: 10px;
+    }
   }
   .panel {
     background: linear-gradient(160deg, #11151c 0%, #0a0d12 100%);
     border: 1px solid #1d242e;
-    border-radius: 16px;
-    padding: 18px 20px;
+    border-radius: 18px;
+    padding: clamp(16px, 2.4vh, 28px) clamp(20px, 2.6vw, 32px);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
   }
   .panel-title {
     font-size: 11px;
     letter-spacing: 0.18em;
     color: #6b7686;
     text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: clamp(8px, 1.5vh, 14px);
+    flex: 0 0 auto;
   }
+  .panel-title .sub {
+    font-size: 12px;
+    color: #8b95a5;
+    letter-spacing: normal;
+    text-transform: none;
+    margin-left: 10px;
+  }
+
+  /* ===== Battery ===== */
   .battery-row {
     display: flex;
     align-items: center;
-    gap: 28px;
+    gap: clamp(18px, 2.5vw, 36px);
+    flex: 0 0 auto;
   }
   .vbattery {
-    width: 60px;
-    height: 140px;
+    height: clamp(120px, 26vh, 260px);
+    aspect-ratio: 0.42;
     display: flex;
     flex-direction: column;
     align-items: center;
+    flex: 0 0 auto;
   }
   .vbattery-cap {
-    width: 36%;
-    height: 8px;
+    width: 38%;
+    height: 10px;
     background: #2a3445;
     border-radius: 3px 3px 0 0;
   }
@@ -59,7 +77,7 @@
     flex: 1;
     width: 100%;
     border: 2px solid #2a3445;
-    border-radius: 10px;
+    border-radius: 12px;
     position: relative;
     overflow: hidden;
     background: #0a0d12;
@@ -70,73 +88,125 @@
     height: 0%;
     background: linear-gradient(180deg, #3adc91 0%, #2ab87a 100%);
     transition: height 0.6s ease;
+    box-shadow: 0 0 18px rgba(58, 220, 145, 0.4);
   }
   .battery-num {
-    font-size: 64px;
+    font-size: clamp(56px, 13vh, 130px);
     font-weight: 200;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.04em;
     line-height: 1;
     font-feature-settings: "tnum";
   }
-  .battery-num .unit { font-size: 0.4em; color: #8b95a5; margin-left: 4px; }
-  .battery-state { font-size: 13px; color: #8b95a5; margin-top: 6px; }
+  .battery-num .unit {
+    font-size: 0.4em;
+    color: #8b95a5;
+    margin-left: 4px;
+  }
+  .battery-state {
+    font-size: clamp(12px, 1.6vh, 16px);
+    color: #8b95a5;
+    margin-top: 8px;
+  }
   .battery-state.charging { color: #ffd34d; }
+
   .chart-wrap {
-    margin-top: 14px;
+    margin-top: clamp(12px, 2vh, 20px);
     padding-top: 12px;
     border-top: 1px solid #1a2230;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100px;
   }
   .chart-label {
-    font-size: 10px; letter-spacing: 0.15em; color: #6b7686;
-    text-transform: uppercase; display: flex; justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: #6b7686;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
     margin-bottom: 6px;
   }
-  .bat-chart { width: 100%; height: 70px; display: block; }
+  .bat-chart {
+    width: 100%;
+    flex: 1;
+    display: block;
+    min-height: 60px;
+  }
   .bat-chart .grid { stroke: #1a2230; stroke-width: 1; stroke-dasharray: 2 4; }
 
+  /* ===== Tethering ===== */
+  .tethering-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(14px, 2.5vh, 28px);
+    min-height: 0;
+  }
   .data-num {
-    font-size: 64px;
+    font-size: clamp(64px, 15vh, 160px);
     font-weight: 200;
     letter-spacing: -0.04em;
     line-height: 1;
     font-feature-settings: "tnum";
     text-align: center;
-    margin-top: 6px;
+    background: linear-gradient(180deg, #ffffff 0%, #aab5c5 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
-  .data-num .unit { font-size: 0.3em; color: #8b95a5; margin-left: 6px; }
+  .data-num .unit {
+    font-size: 0.3em;
+    color: #8b95a5;
+    margin-left: 6px;
+    -webkit-text-fill-color: #8b95a5;
+  }
   .session-label {
     text-align: center;
-    font-size: 11px;
+    font-size: clamp(10px, 1.4vh, 14px);
     letter-spacing: 0.18em;
     color: #6b7686;
     text-transform: uppercase;
-    margin-top: 4px;
+    margin-top: -8px;
   }
   .stats-row {
     display: flex;
-    gap: 10px;
-    margin-top: 12px;
+    gap: 12px;
   }
   .stat {
     flex: 1;
     background: #0c1117;
     border: 1px solid #1a2230;
-    border-radius: 12px;
-    padding: 12px;
+    border-radius: 14px;
+    padding: clamp(10px, 1.6vh, 18px);
     text-align: center;
   }
-  .stat .v { font-size: 22px; font-weight: 300; font-feature-settings: "tnum"; }
-  .stat .k { font-size: 10px; letter-spacing: 0.15em; color: #6b7686; text-transform: uppercase; margin-top: 4px; }
+  .stat .v {
+    font-size: clamp(20px, 3.2vh, 34px);
+    font-weight: 300;
+    font-feature-settings: "tnum";
+    line-height: 1.1;
+  }
+  .stat .k {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: #6b7686;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .stat .v small { font-size: 0.6em; color: #6b7686; }
   .speed-down { color: #3adc91; }
   .speed-up { color: #5aaaff; }
 
+  /* ===== Footer ===== */
   .footer {
     grid-column: 1 / -1;
     text-align: center;
     font-size: 10px;
     color: #3a4453;
     letter-spacing: 0.1em;
-    margin-top: 2px;
+    padding: 2px 0;
   }
   .footer .live { color: #3adc91; }
   .footer .stale { color: #ff5566; }
@@ -171,17 +241,21 @@
   </div>
 
   <div class="panel">
-    <div class="panel-title">Tethering <span style="font-size:12px;color:#8b95a5;letter-spacing:normal;text-transform:none;margin-left:8px">概算 (セルラー全体)</span></div>
-    <div class="data-num"><span id="dataVal">0.00</span><span class="unit" id="dataUnit">MB</span></div>
-    <div class="session-label" id="sessionLabel">SESSION  --:--:--</div>
-    <div class="stats-row">
-      <div class="stat">
-        <div class="v speed-down">↓ <span id="speedDown">0.0</span> <span style="font-size:0.6em;color:#6b7686">MB/s</span></div>
-        <div class="k">Down (1分平均)</div>
+    <div class="panel-title">Tethering <span class="sub">概算 (セルラー全体)</span></div>
+    <div class="tethering-content">
+      <div>
+        <div class="data-num"><span id="dataVal">0.00</span><span class="unit" id="dataUnit">MB</span></div>
+        <div class="session-label" id="sessionLabel">SESSION  --:--:--</div>
       </div>
-      <div class="stat">
-        <div class="v speed-up">↑ <span id="speedUp">0.0</span> <span style="font-size:0.6em;color:#6b7686">MB/s</span></div>
-        <div class="k">Up (1分平均)</div>
+      <div class="stats-row">
+        <div class="stat">
+          <div class="v speed-down">↓ <span id="speedDown">0.0</span> <small>MB/s</small></div>
+          <div class="k">Down (1分平均)</div>
+        </div>
+        <div class="stat">
+          <div class="v speed-up">↑ <span id="speedUp">0.0</span> <small>MB/s</small></div>
+          <div class="k">Up (1分平均)</div>
+        </div>
       </div>
     </div>
   </div>
