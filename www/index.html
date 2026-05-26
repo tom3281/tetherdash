@@ -339,8 +339,10 @@ function applyBatteryUI(level, charging) {
 // ----- TETHERING -----
 let session = {
   active: false, startTs: 0, bytes: 0, dn: 0, up: 0,
-  baseRx: null, baseTx: null, lastRx: 0, lastTx: 0, lastTs: 0,
+  baseRx: null, baseTx: null,
 };
+const SPEED_WINDOW_MS = 60_000;
+let speedHistory = [];
 
 async function readBytesNative() {
   if (!(isNative && window.Capacitor.Plugins.NetworkBytes)) return null;
@@ -356,15 +358,22 @@ async function tickBytes() {
     if (session.active) {
       if (session.baseRx === null) {
         session.baseRx = r.rxBytes; session.baseTx = r.txBytes;
-        session.lastRx = r.rxBytes; session.lastTx = r.txBytes; session.lastTs = now;
+        speedHistory = [];
       }
       session.bytes = (r.rxBytes - session.baseRx) + (r.txBytes - session.baseTx);
-      const dt = (now - session.lastTs) / 1000;
-      if (dt > 0) {
-        session.dn = Math.max(0, r.rxBytes - session.lastRx) / 1_000_000 / dt;
-        session.up = Math.max(0, r.txBytes - session.lastTx) / 1_000_000 / dt;
+      speedHistory.push({ ts: now, rx: r.rxBytes, tx: r.txBytes });
+      const cutoff = now - SPEED_WINDOW_MS;
+      while (speedHistory.length > 2 && speedHistory[0].ts < cutoff) speedHistory.shift();
+      if (speedHistory.length >= 2) {
+        const oldest = speedHistory[0];
+        const dt = (now - oldest.ts) / 1000;
+        if (dt > 0) {
+          session.dn = Math.max(0, r.rxBytes - oldest.rx) / 1_000_000 / dt;
+          session.up = Math.max(0, r.txBytes - oldest.tx) / 1_000_000 / dt;
+        }
       }
-      session.lastRx = r.rxBytes; session.lastTx = r.txBytes; session.lastTs = now;
+    } else {
+      speedHistory = [];
     }
   } else {
     if (session.active) {
@@ -413,7 +422,8 @@ $('btnStart').addEventListener('click', () => {
 });
 $('btnReset').addEventListener('click', () => {
   session = { active: false, startTs: 0, bytes: 0, dn: 0, up: 0,
-              baseRx: null, baseTx: null, lastRx: 0, lastTx: 0, lastTs: 0 };
+              baseRx: null, baseTx: null };
+  speedHistory = [];
   $('btnStart').textContent = '開始';
   $('btnStart').classList.add('primary');
   updateDataUI();
