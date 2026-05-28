@@ -6,7 +6,7 @@
 <title>TetherDash Remote</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
+  html, body { min-height: 100%; }
   body {
     background: #07090c;
     color: #e8eef5;
@@ -14,14 +14,14 @@
     padding: 14px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     gap: 14px;
-    overflow: hidden;
+    min-height: 100vh;
   }
   @media (max-width: 800px) {
     body {
       grid-template-columns: 1fr;
-      grid-template-rows: 1fr 1fr auto;
+      grid-template-rows: minmax(280px, auto) minmax(220px, auto) auto;
       padding: 10px;
       gap: 10px;
     }
@@ -34,7 +34,6 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: hidden;
   }
   .panel-title {
     font-size: 11px;
