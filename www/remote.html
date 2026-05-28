@@ -234,9 +234,9 @@
         <span id="chartRange">--</span>
       </div>
       <svg class="bat-chart" id="batChart" viewBox="0 0 400 70" preserveAspectRatio="none">
-        <line class="grid" x1="0" y1="14" x2="400" y2="14"/>
+        <line class="grid" x1="0" y1="17" x2="400" y2="17"/>
         <line class="grid" x1="0" y1="35" x2="400" y2="35"/>
-        <line class="grid" x1="0" y1="56" x2="400" y2="56"/>
+        <line class="grid" x1="0" y1="53" x2="400" y2="53"/>
       </svg>
     </div>
   </div>
@@ -296,7 +296,9 @@ function segColor(s) {
 function drawBatteryChart(history) {
   const svg = $('batChart');
   Array.from(svg.querySelectorAll('line:not(.grid), circle')).forEach(n => svg.removeChild(n));
-  const W = 400, H = 70;
+  const W = 400, H = 70, PAD = 5;
+  const RANGE = H - 2 * PAD; // 60 — 上下5pxの余白を確保してストロークが切れないように
+  const yOf = (level) => PAD + (1 - level) * RANGE;
   const now = Date.now();
   const xStart = now - BAT_WINDOW_MS;
   if (!history || history.length === 0) {
@@ -311,9 +313,9 @@ function drawBatteryChart(history) {
     const a = history[i - 1], b = history[i];
     const line = document.createElementNS(SVG_NS, 'line');
     line.setAttribute('x1', (((a.ts - xStart) / BAT_WINDOW_MS) * W).toFixed(1));
-    line.setAttribute('y1', (H - a.level * H).toFixed(1));
+    line.setAttribute('y1', yOf(a.level).toFixed(1));
     line.setAttribute('x2', (((b.ts - xStart) / BAT_WINDOW_MS) * W).toFixed(1));
-    line.setAttribute('y2', (H - b.level * H).toFixed(1));
+    line.setAttribute('y2', yOf(b.level).toFixed(1));
     line.setAttribute('stroke', segColor(b));
     line.setAttribute('stroke-width', '2');
     line.setAttribute('stroke-linecap', 'round');
@@ -322,7 +324,7 @@ function drawBatteryChart(history) {
   const last = history[history.length - 1];
   const dot = document.createElementNS(SVG_NS, 'circle');
   dot.setAttribute('cx', (((last.ts - xStart) / BAT_WINDOW_MS) * W).toFixed(1));
-  dot.setAttribute('cy', (H - last.level * H).toFixed(1));
+  dot.setAttribute('cy', yOf(last.level).toFixed(1));
   dot.setAttribute('r', '3');
   dot.setAttribute('fill', segColor(last));
   svg.appendChild(dot);

@@ -317,9 +317,9 @@
         <span id="chartRange">--</span>
       </div>
       <svg class="battery-chart" id="batChart" viewBox="0 0 400 70" preserveAspectRatio="none">
-        <line class="grid" x1="0" y1="14" x2="400" y2="14"/>
+        <line class="grid" x1="0" y1="17" x2="400" y2="17"/>
         <line class="grid" x1="0" y1="35" x2="400" y2="35"/>
-        <line class="grid" x1="0" y1="56" x2="400" y2="56"/>
+        <line class="grid" x1="0" y1="53" x2="400" y2="53"/>
       </svg>
     </div>
   </div>
@@ -443,7 +443,9 @@ function drawBatteryChart() {
   if (!svg) return;
   // Remove non-grid elements
   Array.from(svg.querySelectorAll('line:not(.grid), polyline, circle')).forEach(n => svg.removeChild(n));
-  const W = 400, H = 70;
+  const W = 400, H = 70, PAD = 5;
+  const RANGE = H - 2 * PAD;
+  const yOf = (level) => PAD + (1 - level) * RANGE;
   const now = Date.now();
   const xStart = now - BAT_WINDOW_MS;
   const span = BAT_WINDOW_MS;
@@ -461,9 +463,9 @@ function drawBatteryChart() {
     const a = batteryHistory[i - 1];
     const b = batteryHistory[i];
     const x1 = ((a.ts - xStart) / span) * W;
-    const y1 = H - (a.level * H);
+    const y1 = yOf(a.level);
     const x2 = ((b.ts - xStart) / span) * W;
-    const y2 = H - (b.level * H);
+    const y2 = yOf(b.level);
     const line = document.createElementNS(SVG_NS, 'line');
     line.setAttribute('x1', x1.toFixed(1));
     line.setAttribute('y1', y1.toFixed(1));
@@ -477,7 +479,7 @@ function drawBatteryChart() {
   // Current point marker
   const last = batteryHistory[batteryHistory.length - 1];
   const cx = ((last.ts - xStart) / span) * W;
-  const cy = H - (last.level * H);
+  const cy = yOf(last.level);
   const dot = document.createElementNS(SVG_NS, 'circle');
   dot.setAttribute('cx', cx.toFixed(1));
   dot.setAttribute('cy', cy.toFixed(1));
