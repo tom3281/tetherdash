@@ -51,6 +51,22 @@
     text-transform: none;
     margin-left: 10px;
   }
+  .net-badge {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    background: #1a2230;
+    color: #5aaaff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+    font-weight: 500;
+  }
+  .net-badge.fiveg { color: #3adc91; }
+  .net-badge.fourg { color: #5aaaff; }
+  .net-badge.threeg { color: #ffd34d; }
+  .net-badge.twog { color: #ff5566; }
 
   /* ===== Battery ===== */
   .battery-row {
@@ -243,7 +259,7 @@
   </div>
 
   <div class="panel">
-    <div class="panel-title">Tethering <span class="sub">概算 (セルラー全体)</span></div>
+    <div class="panel-title">Tethering<span class="net-badge" id="netBadge" style="display:none">--</span> <span class="sub">概算 (セルラー全体)</span></div>
     <div class="tethering-content">
       <div>
         <div class="data-num"><span id="dataVal">0.00</span><span class="unit" id="dataUnit">MB</span></div>
@@ -360,6 +376,20 @@ async function poll() {
     $('speedUp').textContent = (s.up || 0).toFixed(2);
 
     drawBatteryChart(s.batteryHistory || []);
+
+    const radio = (s.radioLabel || '').toString();
+    const badge = $('netBadge');
+    if (radio) {
+      badge.textContent = radio;
+      badge.style.display = '';
+      badge.className = 'net-badge ' + (
+        radio === '5G' ? 'fiveg' :
+        radio === '4G' ? 'fourg' :
+        radio === '3G' ? 'threeg' : 'twog'
+      );
+    } else {
+      badge.style.display = 'none';
+    }
 
     $('liveStatus').textContent = '● LIVE';
     $('liveStatus').className = 'live';

@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import Darwin
+import CoreTelephony
 
 @objc(NetworkBytesPlugin)
 public class NetworkBytesPlugin: CAPPlugin {
@@ -9,6 +10,8 @@ public class NetworkBytesPlugin: CAPPlugin {
     // (net/route.h) RTM_IFINFO2 = 0x12, NET_RT_IFLIST2 = 6
     private static let RTM_IFINFO2_VAL: Int32 = 0x12
     private static let NET_RT_IFLIST2_VAL: Int32 = 6
+
+    private let telephonyInfo = CTTelephonyNetworkInfo()
 
     // セルラー(pdp_ip0)の受信/送信バイト数を 64bit で返す。
     // getifaddrs() の if_data は 32bit (4GB ロールオーバー) なので、
@@ -20,6 +23,66 @@ public class NetworkBytesPlugin: CAPPlugin {
             "txBytes": NSNumber(value: tx),
             "interfaceFound": found
         ])
+    }
+
+    // 現在のセルラー無線技術を返す。
+    // CoreTelephony の serviceCurrentRadioAccessTechnology は公式API、審査も通る。
+    // dual-SIM 等で複数値がある場合、最も上位の世代を優先する。
+    @objc func getRadioTech(_ call: CAPPluginCall) {
+        var rawValues: [String] = []
+        if let dict = telephonyInfo.serviceCurrentRadioAccessTechnology {
+            rawValues = Array(dict.values)
+        }
+        let best = NetworkBytesPlugin.pickBestRadio(rawValues)
+        let label = NetworkBytesPlugin.mapTechToLabel(best)
+        call.resolve([
+            "tech": best ?? "",
+            "label": label,
+            "available": (best != nil)
+        ])
+    }
+
+    private static func pickBestRadio(_ values: [String]) -> String? {
+        // 優先順位: 5G > 4G > 3G > 2G
+        let ranking: [String] = {
+            var arr: [String] = []
+            if #available(iOS 14.1, *) {
+                arr += [CTRadioAccessTechnologyNR, CTRadioAccessTechnologyNRNSA]
+            }
+            arr += [
+                CTRadioAccessTechnologyLTE,
+                CTRadioAccessTechnologyHSDPA, CTRadioAccessTechnologyHSUPA, CTRadioAccessTechnologyWCDMA,
+                CTRadioAccessTechnologyCDMAEVDORevB, CTRadioAccessTechnologyCDMAEVDORevA,
+                CTRadioAccessTechnologyCDMAEVDORev0, CTRadioAccessTechnologyeHRPD,
+                CTRadioAccessTechnologyEdge, CTRadioAccessTechnologyGPRS, CTRadioAccessTechnologyCDMA1x
+            ]
+            return arr
+        }()
+        for r in ranking {
+            if values.contains(r) { return r }
+        }
+        return values.first
+    }
+
+    private static func mapTechToLabel(_ tech: String?) -> String {
+        guard let t = tech else { return "" }
+        if #available(iOS 14.1, *) {
+            if t == CTRadioAccessTechnologyNR || t == CTRadioAccessTechnologyNRNSA {
+                return "5G"
+            }
+        }
+        switch t {
+        case CTRadioAccessTechnologyLTE:
+            return "4G"
+        case CTRadioAccessTechnologyWCDMA, CTRadioAccessTechnologyHSDPA, CTRadioAccessTechnologyHSUPA,
+             CTRadioAccessTechnologyCDMAEVDORev0, CTRadioAccessTechnologyCDMAEVDORevA,
+             CTRadioAccessTechnologyCDMAEVDORevB, CTRadioAccessTechnologyeHRPD:
+            return "3G"
+        case CTRadioAccessTechnologyGPRS, CTRadioAccessTechnologyEdge, CTRadioAccessTechnologyCDMA1x:
+            return "2G"
+        default:
+            return ""
+        }
     }
 
     private static func readInterfaceBytes(name targetName: String) -> (rx: UInt64, tx: UInt64, found: Bool) {

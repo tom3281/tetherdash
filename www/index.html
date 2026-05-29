@@ -168,6 +168,24 @@
     50% { opacity: 1; transform: scale(1.1); }
   }
 
+  /* ===== Network tech badge ===== */
+  .net-badge {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    background: #1a2230;
+    color: #5aaaff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+    font-weight: 500;
+  }
+  .net-badge.fiveg { color: #3adc91; }
+  .net-badge.fourg { color: #5aaaff; }
+  .net-badge.threeg { color: #ffd34d; }
+  .net-badge.twog { color: #ff5566; }
+
   /* ===== RIGHT: TETHERING ===== */
   .data-main {
     flex: 1;
@@ -326,7 +344,7 @@
 
   <!-- RIGHT: TETHERING PANEL -->
   <div class="panel">
-    <div class="panel-title">Tethering</div>
+    <div class="panel-title">Tethering<span class="net-badge" id="netBadge" style="display:none">--</span></div>
     <div class="panel-sub">概算 (セルラー全体)</div>
 
     <div class="data-main">
@@ -508,6 +526,32 @@ async function readBytesNative() {
   } catch (e) { return null; }
 }
 
+// 無線技術 (4G/5G/3G/2G)。CoreTelephonyから取得、約3秒に1回ポーリング
+let currentRadioLabel = '';
+let lastRadioCheckTs = 0;
+async function pollRadioTech() {
+  if (!(isNative && window.Capacitor.Plugins.NetworkBytes && window.Capacitor.Plugins.NetworkBytes.getRadioTech)) return;
+  const now = Date.now();
+  if (now - lastRadioCheckTs < 3000) return;
+  lastRadioCheckTs = now;
+  try {
+    const r = await window.Capacitor.Plugins.NetworkBytes.getRadioTech();
+    currentRadioLabel = r.label || '';
+    const badge = $('netBadge');
+    if (currentRadioLabel) {
+      badge.textContent = currentRadioLabel;
+      badge.style.display = '';
+      badge.className = 'net-badge ' + (
+        currentRadioLabel === '5G' ? 'fiveg' :
+        currentRadioLabel === '4G' ? 'fourg' :
+        currentRadioLabel === '3G' ? 'threeg' : 'twog'
+      );
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
 async function tickBytes() {
   const now = Date.now();
   const r = await readBytesNative();
@@ -656,7 +700,8 @@ async function pushStateToServer(level, charging) {
         up: session.up,
         sessionActive: session.active,
         sessionElapsedMs: session.active ? Date.now() - session.startTs : 0,
-        batteryHistory: batteryHistory.slice(-720), // 安全のため上限720点
+        batteryHistory: batteryHistory.slice(-720),
+        radioLabel: currentRadioLabel,
         ts: Date.now()
       }
     });
@@ -671,6 +716,7 @@ async function tick() {
   lastStateLevel = bat.level; lastStateCharging = bat.charging;
   await tickBytes();
   updateDataUI();
+  pollRadioTech();
   pushStateToServer(bat.level, bat.charging);
 }
 async function boot() {
