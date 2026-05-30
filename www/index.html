@@ -303,7 +303,8 @@
     box-shadow: 0 0 6px #3adc91;
     animation: pulse 1.8s ease-in-out infinite;
   }
-  button#btnRemote.active {
+  button#btnRemote.active,
+  button#btnCloud.active {
     background: linear-gradient(180deg, #5aaaff 0%, #3a8adf 100%);
     color: #0a1226;
     border-color: transparent;
@@ -367,10 +368,15 @@
       <button class="primary" id="btnStart">開始</button>
       <button id="btnReset">リセット</button>
       <button id="btnRemote">リモート</button>
+      <button id="btnCloud">ネット共有</button>
     </div>
     <div class="remote-info" id="remoteInfo" style="display:none">
       <span class="remote-dot"></span>
       <span id="remoteUrl">--</span>
+    </div>
+    <div class="remote-info" id="cloudInfo" style="display:none">
+      <span class="remote-dot"></span>
+      <span id="cloudUrl">--</span>
     </div>
   </div>
 
@@ -688,24 +694,65 @@ async function toggleRemote() {
 }
 $('btnRemote').addEventListener('click', toggleRemote);
 
+function buildState(level, charging) {
+  return {
+    batteryLevel: level,
+    charging: charging,
+    bytes: session.bytes,
+    dn: session.dn,
+    up: session.up,
+    sessionActive: session.active,
+    sessionElapsedMs: session.active ? Date.now() - session.startTs : 0,
+    batteryHistory: batteryHistory.slice(-720),
+    radioLabel: currentRadioLabel,
+    ts: Date.now()
+  };
+}
+
 async function pushStateToServer(level, charging) {
-  if (!serverRunning || !localServerAvailable()) return;
+  const state = buildState(level, charging);
+  if (serverRunning && localServerAvailable()) {
+    try { await window.Capacitor.Plugins.LocalServer.updateState({ state }); } catch (e) { /* ignore */ }
+  }
+  pushStateToCloud(state);
+}
+
+// ----- Cloud remote (internet, password protected via Cloudflare Worker) -----
+const CLOUD_BASE = 'https://tetherdash.tom3281.workers.dev';
+function td_uid(n) {
+  const s = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+  return s.replace(/-/g, '').slice(0, n);
+}
+const cloudId = localStorage.getItem('td_cloud_id') || (function () { const v = td_uid(8); localStorage.setItem('td_cloud_id', v); return v; })();
+const cloudKey = localStorage.getItem('td_cloud_key') || (function () { const v = td_uid(32); localStorage.setItem('td_cloud_key', v); return v; })();
+let cloudEnabled = localStorage.getItem('td_cloud_on') === '1';
+let lastCloudPush = 0;
+
+function applyCloudUI() {
+  $('btnCloud').classList.toggle('active', cloudEnabled);
+  $('cloudInfo').style.display = cloudEnabled ? '' : 'none';
+  $('cloudUrl').textContent = `${CLOUD_BASE}/d/${cloudId}`;
+}
+function toggleCloud() {
+  cloudEnabled = !cloudEnabled;
+  localStorage.setItem('td_cloud_on', cloudEnabled ? '1' : '0');
+  applyCloudUI();
+}
+$('btnCloud').addEventListener('click', toggleCloud);
+applyCloudUI();
+
+async function pushStateToCloud(state) {
+  if (!cloudEnabled) return;
+  const now = Date.now();
+  if (now - lastCloudPush < 3000) return; // ~3秒に1回に間引き
+  lastCloudPush = now;
   try {
-    await window.Capacitor.Plugins.LocalServer.updateState({
-      state: {
-        batteryLevel: level,
-        charging: charging,
-        bytes: session.bytes,
-        dn: session.dn,
-        up: session.up,
-        sessionActive: session.active,
-        sessionElapsedMs: session.active ? Date.now() - session.startTs : 0,
-        batteryHistory: batteryHistory.slice(-720),
-        radioLabel: currentRadioLabel,
-        ts: Date.now()
-      }
+    await fetch(`${CLOUD_BASE}/api/push`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + cloudKey },
+      body: JSON.stringify({ deviceId: cloudId, state })
     });
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* オフライン等は無視 */ }
 }
 
 // ----- Main loop -----

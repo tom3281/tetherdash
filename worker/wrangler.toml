@@ -1,0 +1,20 @@
+name = "tetherdash"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# ビューワHTML(viewer.html)を配信。Workerからは env.ASSETS で内部fetchする。
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# 端末ごとの最新stateを保持するDurable Object（SQLiteバックエンド＝無料プラン可）
+[[durable_objects.bindings]]
+name = "DEVICE"
+class_name = "DeviceState"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DeviceState"]
+
+# 閲覧パスワードは secret で投入（コミットしない）:
+#   wrangler secret put VIEW_PASSWORD
